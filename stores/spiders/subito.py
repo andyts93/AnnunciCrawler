@@ -8,10 +8,13 @@ log = logging.getLogger()
 
 class Subito(scrapy.Spider):
 	name = 'subito'
-	conn = MySQLdb.connect(host="localhost",user="scraper",passwd="scraper",db="scraper",use_unicode=True,charset="utf8")
-	x = conn.cursor()
 
-	start_urls = ['http://www.subito.it/annunci-italia/vendita/usato']
+	def __init__(self, query='', *args, **kwargs):
+		super(Subito, self).__init__(*args, **kwargs)
+		self.conn = MySQLdb.connect(host="localhost",user="scraper",passwd="scraper",db="scraper",use_unicode=True,charset="utf8")
+		self.x = self.conn.cursor()
+		query = query.replace(" ", "+")		
+		self.start_urls = ['http://www.subito.it/annunci-italia/vendita/usato/?q=%s' % query]
 
 	def parse(self, response):
 		for item in response.css('.items_listing li'):
@@ -36,11 +39,11 @@ class Subito(scrapy.Spider):
 					log.error("Errore nell'inserimento dell'annuncio")
 					self.conn.rollback()				
 
-		# next_page = response.css('div.pagination_next a::attr(href)').extract_first()
-		# if next_page is not None:
-		# 	next_page = "http://www.subito.it%s" % next_page
-		# 	next_page = response.urljoin(next_page)
-		# 	yield scrapy.Request(next_page, callback=self.parse)
+		next_page = response.css('div.pagination_next a::attr(href)').extract_first()
+		if next_page is not None:
+			next_page = "http://www.subito.it%s" % next_page
+			next_page = response.urljoin(next_page)
+			yield scrapy.Request(next_page, callback=self.parse)
 
 	def parseDetails(self, response):
 		description = response.css('#ad_details .description::text').extract_first()
